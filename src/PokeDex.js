@@ -4,10 +4,57 @@ import ReactLoading from "react-loading";
 import axios from "axios";
 import Modal from "react-modal";
 
+import DetailCard from "./components/DetailCard";
+import ThumbnailCard from "./components/ThumbnailCard";
+import { MdNavigateNext, MdNavigateBefore } from "react-icons/md";
+
 function PokeDex() {
   const [pokemons, setPokemons] = useState([]);
+  const [currentPokemonList, setCurrentPokemonList] = useState([]);
   const [pokemonDetail, setPokemonDetail] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [nextLink, setNextLink] = useState("");
+  const [prevLink, setPrevLink] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortAscending, setSortAscending] = useState(true);
+  const [notfound, setNotfound] = useState(false);
+  const [pokemonApi, setPokemonApi] = useState(
+    "https://pokeapi.co/api/v2/pokemon"
+  );
+  const [searchApiFetch, setSearchApiFetch] = useState([]);
+
+  const searchApi = "https://pokeapi.co/api/v2/pokemon?offset=0&limit=10000";
+
+  useEffect(() => {
+    axios.get(pokemonApi).then((response) => {
+      console.log(response);
+      setPokemons(response.data.results);
+      setCurrentPokemonList(response.data.results);
+      setNextLink(response.data.next);
+      setPrevLink(response.data.previous);
+    });
+    setIsLoading(false);
+  }, [pokemonApi]);
+
+  useEffect(() => {
+    axios.get(searchApi).then((response) => {
+      setSearchApiFetch(response.data.results);
+    });
+    if (search === "") {
+      setPokemons(currentPokemonList);
+      setNotfound(false);
+    } else {
+      const searchedPokemon = searchApiFetch.filter((value) => {
+        return value.name.toLowerCase().includes(search.toLowerCase());
+      });
+      if (searchedPokemon.length > 0) {
+        setNotfound(false);
+        setPokemons(searchedPokemon);
+      } else {
+        setNotfound(true);
+      }
+    }
+  }, [search, currentPokemonList, searchApiFetch, pokemons]);
 
   const customStyles = {
     content: {
@@ -20,30 +67,61 @@ function PokeDex() {
       background: "black",
       color: "white",
     },
-    overlay: { backgroundColor: "grey" },
+    overlay: { backgroundColor: "rgba(0, 0, 0, 0.7)" },
   };
+
+  const handleChange = (e) => setSearch(e.target.value);
+
+  const handleSort = () => {
+    setSortAscending(!sortAscending);
+    const sortedPokemons = pokemons.sort((a, b) => {
+      if (sortAscending) {
+        return a.name > b.name ? 1 : -1;
+      } else {
+        return a.name < b.name ? 1 : -1;
+      }
+    });
+    setPokemons(sortedPokemons);
+  };
+
+  const defaultSort = () => {
+    const idSort = JSON.parse(localStorage.getItem("OriginalPokemon"));
+    setCurrentPokemonList(idSort);
+    setPokemons(idSort);
+    console.log(idSort);
+  };
+
+  const onClickPokemon = (url) => {
+    axios.get(url).then((response) => {
+      console.log(response.data);
+      setPokemonDetail(response.data);
+    });
+  };
+
+  const onClickNext = () => setPokemonApi(nextLink);
+
+  const onClickPrev = () => setPokemonApi(prevLink);
 
   if (!isLoading && pokemons.length === 0) {
     return (
       <div>
         <header className="App-header">
           <h1>Welcome to pokedex !</h1>
-          <h2>Requirement:</h2>
-          <ul>
-            <li>
-              Call this api:https://pokeapi.co/api/v2/pokemon to get pokedex, and show a list of pokemon name.
-            </li>
-            <li>Implement React Loading and show it during API call</li>
-            <li>when hover on the list item , change the item color to yellow.</li>
-            <li>when clicked the list item, show the modal below</li>
-            <li>
-              Add a search bar on top of the bar for searching, search will run
-              on keyup event
-            </li>
-            <li>Implement sorting and pagingation</li>
-            <li>Commit your codes after done</li>
-            <li>If you do more than expected (E.g redesign the page / create a chat feature at the bottom right). it would be good.</li>
-          </ul>
+          <h2>Loading...</h2>
+          {/* <h2>Requirement:</h2>
+					<ul>
+						<li>Call this api:https://pokeapi.co/api/v2/pokemon to get pokedex, and show a list of pokemon name.</li>
+						<li>Implement React Loading and show it during API call</li>
+						<li>when hover on the list item , change the item color to yellow.</li>
+						<li>when clicked the list item, show the modal below</li>
+						<li>Add a search bar on top of the bar for searching, search will run on keyup event</li>
+						<li>Implement sorting and pagingation</li>
+						<li>Commit your codes after done</li>
+						<li>
+							If you do more than expected (E.g redesign the page / create a chat feature at the bottom right). it would
+							be good.
+						</li>
+					</ul> */}
         </header>
       </div>
     );
@@ -56,14 +134,55 @@ function PokeDex() {
           <>
             <div className="App">
               <header className="App-header">
-                <b>Implement loader here</b>
+                <ReactLoading />
               </header>
             </div>
           </>
         ) : (
           <>
             <h1>Welcome to pokedex !</h1>
-            <b>Implement Pokedex list here</b>
+            <div className="search-box">
+              <MdNavigateBefore
+                style={{ cursor: prevLink ? "pointer" : "default" }}
+                color={prevLink ? "yellow" : "grey"}
+                size={50}
+                onClick={onClickPrev}
+              />
+              <input
+                className="search-input"
+                type="text"
+                name="search"
+                placeholder="Search Pokemon"
+                onKeyUp={handleChange}
+              />
+              <MdNavigateNext
+                style={{ cursor: nextLink ? "pointer" : "default" }}
+                color={nextLink ? "yellow" : "grey"}
+                size={50}
+                onClick={onClickNext}
+              />
+               <button className="button-32" onClick={handleSort}>Sort by Name</button>
+              <button className="button-32" onClick={defaultSort}>Sort by default</button>
+            </div>
+            {notfound && (
+              <p className="couldnt-find">
+                Couldn't find the searched pokemon!
+              </p>
+            )}
+            <div className="btn-group">
+             
+            </div>
+            {pokemons && (
+              <div className="list-container">
+                {pokemons.map((pokemon, index) => (
+                  <ThumbnailCard
+                    key={index}
+                    onClick={() => onClickPokemon(pokemon.url)}
+                    name={pokemon.name}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </header>
@@ -76,18 +195,19 @@ function PokeDex() {
           }}
           style={customStyles}
         >
-          <div>
-            Requirement:
-            <ul>
-              <li>show the sprites front_default as the pokemon image</li>
-              <li>
-                Show the stats details - only stat.name and base_stat is
-                required in tabular format
-              </li>
-              <li>Create a bar chart based on the stats above</li>
-              <li>Create a  buttton to download the information generated in this modal as pdf. (images and chart must be included)</li>
-            </ul>
-          </div>
+          <DetailCard detail={pokemonDetail} />
+          {/* <div>
+						Requirement:
+						<ul>
+							<li>show the sprites front_default as the pokemon image</li>
+							<li>Show the stats details - only stat.name and base_stat is required in tabular format</li>
+							<li>Create a bar chart based on the stats above</li>
+							<li>
+								Create a buttton to download the information generated in this modal as pdf. (images and chart must be
+								included)
+							</li>
+						</ul>
+					</div> */}
         </Modal>
       )}
     </div>
